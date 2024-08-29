@@ -18,142 +18,135 @@ go get github.com/Permify/permify-go
 
 # How to use
 
-### Import Permify.
-
 ```go
+package main
+
 import (
-	permify_payload "buf.build/gen/go/permifyco/permify/protocolbuffers/go/base/v1"
-	permify_grpc "github.com/Permify/permify-go/grpc"
+  "context"
+  "io"
+  "fmt"
+
+  permify_payload "buf.build/gen/go/permifyco/permify/protocolbuffers/go/base/v1"
+  permify_grpc "github.com/Permify/permify-go/grpc"
+  grpc "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
 )
-```
 
-### Initialize the new Permify client.
+func main() {
+  // Initialize the new Permify client.
 
-```go
-// generate new client
-client, err := permify_grpc.NewClient(
-	permify_grpc.Config{
-		Endpoint: `localhost:3478`,
-	},
-	grpc.WithTransportCredentials(insecure.NewCredentials()),
-)
-```
+  // generate new client
+  client, _ := permify_grpc.NewClient(
+    permify_grpc.Config{
+      Endpoint: `localhost:3478`,
+    },
+    grpc.WithTransportCredentials(insecure.NewCredentials()),
+  )
 
-### Create a new tenant
+  // Create a new tenant
+  client.Tenancy.Create(context.Background(), &permify_payload.TenantCreateRequest{
+    Id:   "t1",
+    Name: "tenant 1",
+  })
 
-```go
-ct, err := client.Tenancy.Create(context.Background(), &permify_payload.TenantCreateRequest{
-	Id:   "t1",
-	Name: "tenant 1",
-})
-```
-
-### Write Schema
-
-```go
-sr, err: = client.Schema.Write(context.Background(), &permify_payload.SchemaWriteRequest {
+  // Write Schema
+  sr, _ := client.Schema.Write(context.Background(), &permify_payload.SchemaWriteRequest {
     TenantId: "t1",
     Schema: `
-        entity user {}
-            
-        entity document {
-    
-        relation viewer @user
-        action view = viewer
+    entity user {}
+
+    entity document {
+
+      relation viewer @user
+      action view = viewer
     }`,
-})
-```
+  })
 
-### Write Relationships
-
-```go
-
-rr, err := client.Data.WriteRelationships(context.Background(), & permify_payload.RelationshipWriteRequest {
+  // Write Relationships
+  rr, _ := client.Data.WriteRelationships(context.Background(), & permify_payload.RelationshipWriteRequest {
     TenantId: "t1",
     Metadata: & permify_payload.RelationshipWriteRequestMetadata {
-        SchemaVersion: sr.SchemaVersion, // sr --> schema write response
+      SchemaVersion: sr.SchemaVersion, // sr --> schema write response
     },
     Tuples: [] * permify_payload.Tuple {
-        {
-            Entity: & permify_payload.Entity {
-                Type: "document",
-                Id: "1",
-            },
-            Relation: "viewer",
-            Subject: & permify_payload.Subject {
-                Type: "user",
-                Id: "1",
-            },
-        }, {
-            Entity: & permify_payload.Entity {
-                Type: "document",
-                Id: "3",
-            },
-            Relation: "viewer",
-            Subject: & permify_payload.Subject {
-                Type: "user",
-                Id: "1",
-            },
-        }
+      {
+        Entity: & permify_payload.Entity {
+          Type: "document",
+          Id: "1",
+        },
+        Relation: "viewer",
+        Subject: & permify_payload.Subject {
+          Type: "user",
+          Id: "1",
+        },
+      }, {
+        Entity: & permify_payload.Entity {
+          Type: "document",
+          Id: "3",
+        },
+        Relation: "viewer",
+        Subject: & permify_payload.Subject {
+          Type: "user",
+          Id: "1",
+        },
+      },
     },
-})
-```
+  })
 
-### Check
-
-```go
-cr, err := client.Permission.Check(context.Background(), & permify_payload.PermissionCheckRequest {
+  // Check
+  cr, _ := client.Permission.Check(context.Background(), & permify_payload.PermissionCheckRequest {
     TenantId: "t1",
-	Metadata: & permify_payload.PermissionCheckRequestMetadata {
-        SnapToken: rr.SnapToken, // rr --> relationship write response
-        SchemaVersion: sr.SchemaVersion, // sr --> schema write response
-        Depth: 50,
+    Metadata: & permify_payload.PermissionCheckRequestMetadata {
+      SnapToken: rr.SnapToken, // rr --> relationship write response
+      SchemaVersion: sr.SchemaVersion, // sr --> schema write response
+      Depth: 50,
     },
     Entity: & permify_payload.Entity {
-        Type: "document",
-        Id: "1",
+      Type: "document",
+      Id: "1",
     },
     Permission: "view",
     Subject: & permify_payload.Subject {
-        Type: "user",
-        Id: "3",
+      Type: "user",
+      Id: "1",
     },
-})
-
-if (cr.can == PermissionCheckResponse_Result.RESULT_ALLOWED) {
+  })
+  
+  fmt.Printf("%+v", cr)
+/*
+  if (cr.Can == PermissionCheckResponse_Result.RESULT_ALLOWED) {
     // RESULT_ALLOWED
-} else {
+  } else {
     // RESULT_DENIED
-}
-```
+  }
+*/
 
-### Streaming Calls
-
-```go
-str, err := client.Permission.LookupEntityStream(context.Background(), & permify_payload.PermissionLookupEntityRequest {
+  // Streaming Calls
+  str, _ := client.Permission.LookupEntityStream(context.Background(), & permify_payload.PermissionLookupEntityRequest {
     TenantId: "t1",
-	Metadata: & permify_payload.PermissionLookupEntityRequestMetadata {
-        SnapToken: rr.SnapToken, // rr --> relationship write response
-        SchemaVersion: sr.SchemaVersion, // sr --> schema write response
-        Depth: 50,
+    Metadata: & permify_payload.PermissionLookupEntityRequestMetadata {
+      SnapToken: rr.SnapToken, // rr --> relationship write response
+      SchemaVersion: sr.SchemaVersion, // sr --> schema write response
+      Depth: 50,
     },
     EntityType: "document",
     Permission: "view",
     Subject: & permify_payload.Subject {
-        Type: "user",
-        Id: "1",
+      Type: "user",
+      Id: "1",
     },
-})
+  })
 
-// handle stream response
-for {
-    res, err: = str.Recv()
+  // handle stream response
+  for {
+    _, err := str.Recv()
 
     if err == io.EOF {
-        break
+      break
     }
 
     // res.EntityId
+  }
 }
 ```
 
